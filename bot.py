@@ -4,10 +4,15 @@ import random
 import time
 import threading
 
+# ANSI escape codes for color
+GREEN = "\033[92m"
+RESET = "\033[0m"
+
+# Read API URL from file
 with open('account.txt', 'r') as file:
-    api_key = file.readline().strip()
     api_url = file.readline().strip()
 
+# Read messages from file
 with open('message.txt', 'r') as file:
     user_messages = file.readlines()
 
@@ -15,7 +20,6 @@ user_messages = [msg.strip() for msg in user_messages]
 
 def send_request(message):
     headers = {
-        'Authorization': f'Bearer {api_key}',
         'accept': 'application/json',
         'Content-Type': 'application/json'
     }
@@ -34,8 +38,8 @@ def send_request(message):
             if response.status_code == 200:
                 try:
                     response_json = response.json()
-                    print(f"Response for message: '{message}'")
-                    print(response_json)
+                    print(f"{GREEN}Response for message: '{message}'{RESET}")
+                    print(f"{GREEN}{json.dumps(response_json, indent=2)}{RESET}")  # Pretty print JSON response
                     break
                 except json.JSONDecodeError:
                     print(f"Error: Received invalid JSON response for message: '{message}'")
@@ -52,6 +56,7 @@ def start_thread():
         random_message = random.choice(user_messages)
         send_request(random_message)
 
+# Get number of threads from user
 try:
     num_threads = int(input("Enter the number of threads you want to use: "))
     if num_threads < 1:
@@ -61,13 +66,14 @@ except ValueError:
     print("Invalid input. Please enter an integer.")
     exit()
 
+# Start threads
 threads = []
-
 for _ in range(num_threads):
     thread = threading.Thread(target=start_thread)
     threads.append(thread)
     thread.start()
 
+# Wait for threads to finish
 for thread in threads:
     thread.join()
 
