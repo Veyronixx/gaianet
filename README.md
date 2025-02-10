@@ -4,7 +4,7 @@
 ## 1. Clone the repository to your local machine:
 ```
 git clone https://github.com/Veyronixx/gaianet-bot1.git
-cd Gaianet-BOT
+cd gaianet-bot1
 ```
 ## 2. Install Python 3: Install Python 3 using the `apt` package manager:
 ```
