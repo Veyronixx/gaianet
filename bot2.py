@@ -2,9 +2,12 @@ import requests
 import random
 import time
 import logging
-from typing import List
+from colorama import Fore, Style, init
 
-# Configure logging
+# Inisialisasi colorama untuk warna terminal
+init(autoreset=True)
+
+# Konfigurasi logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -14,13 +17,24 @@ logging.basicConfig(
     ]
 )
 
-# Configuration
-BASE_URL = "https://ruesandora.gaia.domains"
-MODEL = "qwen2-0.5b-instruct"
-MAX_RETRIES = 100  # Essentially infinite retries
-RETRY_DELAY = 5  # Seconds between retries
-QUESTION_DELAY = 1  # Seconds between successful questions
+# Membaca API keys dan URL dari file account.txt
+with open("account.txt", "r") as file:
+    lines = [line.strip() for line in file.readlines() if line.strip()]
 
+api_keys = lines[:-1]  # Semua kecuali terakhir adalah API keys
+api_url = lines[-1]  # Baris terakhir adalah API URL
+
+if not api_keys:
+    print(Fore.RED + "[ERROR] Tidak ada API key di account.txt!" + Style.RESET_ALL)
+    exit(1)
+
+# Konfigurasi utama
+MODEL = "qwen2-0.5b-instruct"
+MAX_RETRIES = 100
+RETRY_DELAY = 5  # Jeda waktu antar percobaan (detik)
+QUESTION_DELAY = 2  # Jeda antar pertanyaan (detik)
+
+# Daftar pertanyaan
 QUESTIONS = [
 "How to design and build websites using no-code." ,
 "What are the benefits of using no-code platforms for website building?" ,
@@ -295,7 +309,7 @@ QUESTIONS = [
 "How do I use databases with form submissions and user inputs in no-code?" ,
 "How do I create reports and dashboards based on data in a database in no-code?" ,
 "How do I implement database triggers and events in no-code?" ,
-"How do I integrate databases with third-party APIs in no-code?" ,
+"How do I integrate databases with third-party s in no-code?" ,
 "How do I store and manage large amounts of data in a database in no-code?" ,
 "How do I implement full-text search in a database in no-code?" ,
 "How do I implement database indexing and caching for performance in no-code?" ,
@@ -330,77 +344,61 @@ QUESTIONS = [
 "How do I implement database-driven data reporting and data visualization in no-code?"
 ]
 
-def chat_with_ai(api_key: str, question: str) -> str:
+def chat_with_ai(api_key, question):
+    """Mengirim permintaan ke API Gaia dengan API key yang dipilih"""
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
 
-    messages = [
-        {"role": "user", "content": question}
-    ]
-
     data = {
         "model": MODEL,
-        "messages": messages,
+        "messages": [{"role": "user", "content": question}],
         "temperature": 0.7
     }
 
     for attempt in range(MAX_RETRIES):
         try:
-            logging.info(f"Attempt {attempt+1} for question: {question[:50]}...")
-            response = requests.post(
-                f"{BASE_URL}/v1/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=30
-            )
+            logging.info(Fore.BLUE + f"🔄 Attempt {attempt+1} for question: {question[:50]}..." + Style.RESET_ALL)
+            response = requests.post(api_url, headers=headers, json=data, timeout=30)
 
             if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"]
+                return response.json().get("choices", [{}])[0].get("message", {}).get("content", "No response")
 
-            logging.warning(f"API Error ({response.status_code}): {response.text}")
+            logging.warning(Fore.YELLOW + f"⚠️ API Error ({response.status_code}): {response.text}" + Style.RESET_ALL)
             time.sleep(RETRY_DELAY)
 
         except Exception as e:
-            logging.error(f"Request failed: {str(e)}")
+            logging.error(Fore.RED + f"❌ Request failed: {str(e)}" + Style.RESET_ALL)
             time.sleep(RETRY_DELAY)
 
-    raise Exception("Max retries exceeded")
+    return "⚠️ Max retries exceeded."
 
-def run_bot(api_key: str):
-    while True:  # Outer loop to repeat the questions indefinitely
+def run_bot():
+    """Loop utama untuk menjalankan bot dengan multiple API key"""
+    while True:
         random.shuffle(QUESTIONS)
-        logging.info(f"Starting chatbot with {len(QUESTIONS)} questions in random order")
+        logging.info(Fore.CYAN + f"🚀 Starting chatbot with {len(QUESTIONS)} questions in random order" + Style.RESET_ALL)
 
         for i, question in enumerate(QUESTIONS, 1):
-            logging.info(f"\nProcessing question {i}/{len(QUESTIONS)}")
-            logging.info(f"Question: {question}")
+            api_key = random.choice(api_keys)  # Pilih API key secara acak
+            logging.info(Fore.GREEN + f"🔑 Using API Key: {api_key[:10]}... (Question {i}/{len(QUESTIONS)})" + Style.RESET_ALL)
 
             start_time = time.time()
-            try:
-                response = chat_with_ai(api_key, question)
-                elapsed = time.time() - start_time
+            response = chat_with_ai(api_key, question)
+            elapsed = time.time() - start_time
 
-                # Print the entire response
-                print(f"Answer to '{question[:50]}...':\n{response}")
+            print(Fore.MAGENTA + f"📝 Question: {question[:50]}..." + Style.RESET_ALL)
+            print(Fore.GREEN + f"💡 Answer: {response}" + Style.RESET_ALL)
 
-                logging.info(f"Received full response in {elapsed:.2f}s")
-                logging.info(f"Response length: {len(response)} characters")
-
-                # Ensure the script waits for the full response before proceeding
-                time.sleep(QUESTION_DELAY)  # Wait before asking next question
-
-            except Exception as e:
-                logging.error(f"Failed to process question: {str(e)}")
-                continue
+            logging.info(Fore.BLUE + f"⏳ Response received in {elapsed:.2f}s" + Style.RESET_ALL)
+            time.sleep(QUESTION_DELAY)
 
 def main():
-    print("Title: GaiaAI Chatbot (FORKED BY ENZIFIRI)")
-    print("Created by: Rues Community")
-    print("Twitter: https://x.com/Ruesandora0")
-    api_key = input("Enter your API key: ")
-    run_bot(api_key)
+    print(Fore.CYAN + "✨ GaiaAI Chatbot (Multi API Key Support) ✨" + Style.RESET_ALL)
+    print(Fore.YELLOW + "Created by: Rues Community" + Style.RESET_ALL)
+    print(Fore.YELLOW + "Twitter: https://x.com/Ruesandora0" + Style.RESET_ALL)
+    run_bot()
 
 if __name__ == "__main__":
     main()
